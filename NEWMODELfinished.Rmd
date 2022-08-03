@@ -1,0 +1,213 @@
+---
+title: "Housing Price Prediction"
+author: "NICOLE ASSENZA"
+date: "7/21/2022"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+This project is based on Kaggle data to predict housing prices. After we load necessary libraries and files, we will do a visual exploratory data analysis as this is a large dataset and it's difficult to tell which variables are the best predictors of sale price. We will also observe  any correlations and explore data distributions. Next, we will perform correlation and regression analysis, build a multiple regression model. The goal is to find the best linear model to predict the prices of houses.
+#Visuallly Exploring Data
+```{r}
+knitr::opts_chunk$set(echo = T)
+```
+
+```{r}
+library(ggplot2)
+library(mosaic)
+library(dplyr)
+library(GGally)
+library(gtools)
+library(ggfortify)
+library(readr)
+library(dplyr)
+library(ggpubr)
+library(modelr)
+library(corrplot)
+library(caret)
+library(mlbench)
+library(scales)
+library(olsrr)
+library(tidyverse)
+library(RColorBrewer)
+
+#####
+df.train = train <- read.csv("C:/Users/nicol/OneDrive/Desktop/train.csv",stringsAsFactors = T) 
+
+df.test = read.csv("C:/Users/nicol/OneDrive/Desktop/test.csv",stringsAsFactors = T)
+
+#### exploration of the data, checking for normal distributions
+df.train = train <- read.csv("C:/Users/nicol/OneDrive/Desktop/train.csv",stringsAsFactors = F)
+ggplot(train, aes(x = SalePrice)) +
+  geom_histogram(color = "black", fill = "lightslateblue", bins = 50) + 
+  scale_x_continuous(labels = comma) +
+  labs(title = "Distribution of house prices", x = "Price", y = "Frequency") +
+  theme_minimal()
+
+
+ggplot(train, aes(x = OverallCond)) +
+  geom_histogram(color = "black", fill = "green", bins = 10) + 
+  scale_x_continuous(labels = comma) +
+  labs(title = "Overall Condition of Houses", x = "Year", y = "Number of houses") +
+  theme_bw()
+
+
+
+# Histogram of living area
+ggplot(df.train, aes(x = GrLivArea)) +
+  geom_histogram(color = "black", fill = "pink1", bins = 50) + 
+  scale_x_continuous(labels = comma) +
+  labs(title = "Distribution of house sizes", x = "Living area (sqft)", y = "Frequency") +
+  theme_minimal()
+        
+# prices in different neighborhoods        
+neighbourhoods = tapply(df.train$SalePrice, df.train$Neighborhood, median)
+neighbourhoods = sort(neighbourhoods, decreasing = TRUE)
+
+dotchart(neighbourhoods, pch = 21, bg = "purple1",
+         cex = 0.85,
+         xlab="Average price of a house",
+         main = "Which the most expensive neighborhood?")
+
+
+library(GGally)
+
+ggpairs(df.train[, c("SalePrice", "OverallQual", "LotArea","YearBuilt")])
+
+```
+
+
+# Cleaning the global environment
+```{r}
+rm(list = ls())
+```
+
+```{r}
+
+library(tidyverse)
+library(ggplot2)
+library(scales)
+library(pwr)
+library(agricolae)
+library(huxtable)
+library(lawstat)
+library(lsmeans)
+library(nCDunnett)
+library(dplyr)
+library(WDI)
+library(investr)
+library(multcomp)
+library(pairwiseCI)
+library(DescTools)
+library(GGally)
+library(olsrr)
+
+```
+
+
+```{r}
+Database <- data.frame(read.csv("C:/Users/nicol/OneDrive/Desktop/train.csv",stringsAsFactors = T))
+Database2 <- data.frame(read.csv("C:/Users/nicol/OneDrive/Desktop/test.csv",stringsAsFactors = T))
+
+```
+
+```{r}
+head(Database)
+head(Database2)
+```
+```{r}
+Database$State <- factor(Database$SalePrice)
+plot(Database$SalePrice,Database2$SalePrice)
+str(Database)
+```
+
+
+```{r}
+plot(Database[,1:8], col = "blue")
+plot(Database2[,1:8], col = "purple")
+head(Database)
+fit = lm(SalePrice~MSSubClass+LotArea+Street+LotConfig+ LandSlope +OverallQual +OverallCond +YearBuilt+RoofStyle +RoofMatl+PoolArea+BedroomAbvGr+ KitchenAbvGr+SaleType ,data=Database)
+summary(fit)
+
+```
+
+
+```{r}
+
+# Stepwise
+c = ols_step_both_p(fit, prem = 0.05, pent = 0.05, details = TRUE)
+
+
+# Stepwise
+ols_step_both_p(fit, prem = 0.05, pent = 0.05, details = FALSE)
+ols_step_both_p(fit)
+ols_step_both_aic(fit)
+ols_plot_added_variable(fit)
+
+library(lmtest)
+bptest(fit)
+
+library(car)
+vif(fit)
+ols_plot_resid_lev(fit)
+
+```
+
+
+```{r}
+model2 <- lm(SalePrice ~ OverallQual + GrLivArea + X1stFlrSF + GarageArea + YearBuilt + ExterQual + FullBath, data = Database)
+summary(model2)
+bptest(model2)
+ols_plot_resid_lev(model2)
+```
+```{r}
+library(epiR)
+data <- as.table(matrix(c(670,202,74,640), nrow = 2, byrow = TRUE))
+rval <- epi.tests(data, conf.level = 0.95)
+print(rval)  
+
+model_fit_stats <- function(linear.model) {
+  r.sqr <- summary(linear.model)$r.squared
+  adj.r.sqr <- summary(linear.model)$adj.r.squared
+  pre.r.sqr <- pred_r_squared(linear.model)
+  PRESS <- PRESS(linear.model)
+  return.df <- data.frame(r.squared = r.sqr, adj.r.squared = adj.r.sqr, pred.r.squared = pre.r.sqr, press = PRESS)
+  return(return.df)
+}
+pred_r_squared <- function(linear.model) {
+  #' Use anova() to get the sum of squares for the linear model
+  lm.anova <- anova(linear.model)
+  #' Calculate the total sum of squares
+  tss <- sum(lm.anova$'Sum Sq')
+  # Calculate the predictive R^2
+  pred.r.squared <- 1-PRESS(linear.model)/(tss)
+  
+  return(pred.r.squared)
+}
+PRESS <- function(linear.model) {
+  #' calculate the predictive residuals
+  pr <- residuals(linear.model)/(1-lm.influence(linear.model)$hat)
+  #' calculate the PRESS
+  PRESS <- sum(pr^2)
+  
+  return(PRESS)
+}
+AIC(fit)
+
+
+```
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
